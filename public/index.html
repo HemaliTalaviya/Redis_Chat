@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp UI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 250px;
+      background-color: #ece5dd;
+      padding: 20px;
+      border-right: 1px solid #ccc;
+    }
+
+    .header {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .search-bar {
+      margin-bottom: 20px;
+    }
+
+    .chat-list {
+      overflow-y: auto;
+    }
+
+    .chat {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .avatar {
+      width: 50px;
+      height: 50px;
+      background-color: #ccc;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+
+    .details {
+      flex-grow: 1;
+    }
+
+    .name {
+      font-weight: bold;
+    }
+
+    .chat-window {
+      flex-grow: 1;
+      padding: 20px;
+    }
+
+    .header {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .chat-messages {
+      height: calc(100% - 100px);
+      overflow-y: auto;
+    }
+
+    .message-input {
+      display: flex;
+      margin-top: 20px;
+    }
+
+    .message-input input {
+      flex-grow: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px 0 0 5px;
+    }
+
+    .message-input button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      border-radius: 0 5px 5px 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <div class="header">WhatsApp</div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search" id="searchItem" onkeyup="searchItem()">
+      </div>
+      <div class="chat-list" id="chatList">
+        <!-- <div class="chat">
+          <div class="avatar"></div>
+          <div class="details">
+            <div class="name">John Doe</div>
+            <div class="message">Hello!</div>
+          </div>
+        </div> -->
+        <!-- More chat items can be added here -->
+      </div>
+    </div>
+    <div class="chat-window">
+      <div class="header" id="nm1"></div>
+      <div class="chat-messages">
+        <div id="allp">
+
+        </div>
+        <!-- Chat messages will be displayed here -->
+      </div>
+      <div class="message-input">
+        <input type="text" placeholder="Type a message" id="msg">
+        <button onclick="chat()" id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+</body>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io()
+
+  const name = prompt("Enter name=")
+  const data = document.getElementById('nm1').textContent = `${name}`
+  let userId = ""
+  let userDiv = ""
+  let receiver = ""
+  let enableChat = false;
+  let allData = [];
+  socket.emit('SET_USER_NAME', name)
+  
+  socket.on('SET_USER_NAME', (userData) => {
+    // console.log('dattaa set user name===', userData)
+    userId = userData.userId;
+    console.log('user id set user name event ==', userId)
+    if(userId){
+      socket.emit('USER_LIST', '')
+    }
+  })
+
+
+  socket.on('USER_LIST', (userData) => {
+    printUser(userData)
+  })
+
+  function printUser(userData){
+    let userDiv = ""
+    // console.log('dattaa set user name===', userData)
+    userData.forEach(element => {
+      // console.log('show user list user name =',element)
+      if (name !== element.name) {
+        userDiv += '<div class="chat"  onclick = "perUser(\'' + element.id + '\')">'
+          + '<div class="avatar"></div>'
+          + '<div class="details">'
+          + '<div class="name">' + element.name + '</div>'
+          + '</div></div>'
+      }
+
+    })
+    // console.log('userdiv=', userDiv)
+    document.getElementById('chatList').innerHTML = userDiv
+  }
+
+  function searchItem() {
+    const searchData = document.getElementById('searchItem').value;
+    // console.log('serach item data====',searchData)
+    socket.emit('SEARCH_ITEM', searchData);
+
+  }
+
+  socket.on('SEARCH_ITEM', (data) => {
+    console.log('this log is SEARCH_ITEM =', data);
+    let searchBox = [];
+    data.forEach(element => {
+      searchBox.push(element.name)
+    })
+    console.log('serach box data==', searchBox);
+
+
+    let htmlData = ``;
+    searchBox.forEach((element) => {
+      htmlData += `
+      <div class="chat">
+          <div class="avatar"></div>
+          <div class="details">
+            <div class="name">${element}</div>
+          </div>
+        </div> `
+    })
+    document.getElementById('chatList').innerHTML = htmlData;
+  }
+  )
+
+  function chat() {
+    const message = document.getElementById('msg').value;
+    // console.log(message);
+    const obj = {
+      // name,
+      userId,
+      message,
+      receiver
+    }
+    // console.log('message===', obj)
+    socket.emit('SEND_MSG', obj)
+    document.getElementById('msg').value = ""
+  }
+
+  socket.on('SEND_MSG', (data) => {
+    // console.log('send msg event only data log =',userId , data.sender ,receiver , data.receiver, data)
+    console.log('send msg event =', userId, data.sender, receiver, data.receiver, data)
+    if (userId === data.sender && receiver === data.receiver || userId === data.receiver && receiver === data.sender) {
+      if (data.sender === userId) {
+        createCard(data.sender, data.message, 'right')
+      }
+      else {
+        createCard(data.receiver, data.message, 'left')
+      }
+    }
+  })
+
+  socket.on('CHAT_HIS', (data) => {
+    // console.log('send msg chat history data log =', data)
+    document.getElementById('allp').innerHTML = "";
+    if(!data){
+      return false
+    }
+    // console.log('send msg chat history =',userId , data.sender ,receiver , data.receiver, data)
+    data.forEach(async (element) => {
+      console.log('CHAT_HIS=====', element)
+      if (userId === element.sender && receiver === element.rec || userId === element.rec && receiver === element.sender) {
+        if (element.sender === userId) {
+          createCard(element.sender, element.msg, 'right')
+        }
+        else {
+          createCard(element.rec, element.msg, 'left')
+        }
+      }
+    })
+
+
+  })
+
+
+  // socket.on('GET_USER_CHAT', (data) => {
+  //   // console.log('GET_USER_CHAT data====', data)
+  //   document.getElementById('allp').innerHTML = "";
+  //   data.forEach(async (element) => {
+  //     if (name === element.sender && receiver === element.rec || name === element.rec && receiver === element.sender) {
+  //       if (name === element.sender) {
+  //         await createCard(element.sender, element.msg, 'right')
+  //       } else {
+  //         await createCard(element.rec, element.msg, 'left')
+  //       }
+  //     }
+  //   })
+
+  //   let textBox = document.getElementById('msg')
+  //   let sendButton = document.getElementById('sendBtn')
+  //   textBox.disabled = false
+  //   sendButton.disabled = false
+
+  // })
+
+
+  function perUser(userId) {
+    // console.log('receiver=',userName)
+    // receiver = userName,
+    receiver = userId,
+      enableChat = true
+    socket.emit('change_receiver_color', {receiver});
+    // socket.emit('CHAT_HIS', { receiver })
+  }
+
+  // socket.on('CHAT_HIS', (data) => {
+  //   console.log('send msg chat history data log  =', data)
+  //   // console.log('send msg chat history =',userId , data.sender ,receiver , data.receiver, data)
+  //   document.getElementById('allp').innerHTML = "";
+  //   data.forEach(async (element) => {
+  //     console.log('CHAT_HIS=====', element)
+  //     if (userId === element.sender && receiver === element.rec || userId === element.rec && receiver === element.sender) {
+  //       if (element.sender === userId) {
+  //         createCard(element.sender, element.msg, 'right')
+  //       }
+  //       else {
+  //         createCard(element.rec, element.msg, 'left')
+  //       }
+  //     }
+  //   })
+  // })
+
+  // socket.on('change_receiver_color', (data) => {
+
+  //   console.log('change color event frontend==', data)
+  //   const receivers = document.querySelectorAll('.chat');
+
+  //   receivers.forEach(receiver => {
+  //     console.log("This is Reciever..........", receiver)
+  //     if (receiver.textContent === JSON.stringify(data)) {
+  //       receiver.style.color = 'red';
+  //       // return 1
+  //     }
+  //     else {
+  //       receiver.style.color = '';
+  //     }
+  //   });
+  // });
+
+
+
+  // Create a new card element
+  function createCard(title, content, align) {
+    const chatItem = document.createElement('div');
+    chatItem.classList.add('chat')
+    const card = document.createElement('div');
+    card.classList.add('card');
+    const cardHeader = document.createElement('div');
+    cardHeader.classList.add('card-header');
+    cardHeader.textContent = title;
+    cardHeader.style.textAlign = align;
+    const cardBody = document.createElement('div');
+    cardBody.classList.add('card-body');
+    cardBody.textContent = content;
+    cardBody.style.textAlign = align
+    card.appendChild(cardHeader);
+    card.appendChild(cardBody);
+    document.getElementById('allp').appendChild(card);
+  }
+
+
+</script>
+
+</html>
